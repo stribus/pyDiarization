@@ -1,2 +1,9 @@
-assemblyai
-python-dotenv
+assemblyai==0.34.0
+python-dotenv==1.0.1
+nemo_toolkit==2.0.0
+ffmpeg-python==0.2.0
+whisperx==3.1.5
+huggingface-hub
+pytorch==2.0.0 
+torchaudio==2.0.0
+pydub==0.25.1
