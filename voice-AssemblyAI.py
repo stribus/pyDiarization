@@ -1,4 +1,3 @@
-
 import os
 import sys
 import assemblyai as aai
@@ -6,18 +5,19 @@ import dotenv
 
 dotenv.load_dotenv()
 
-def transcribe(file_path,speakers_expected=2,output=''):        
+def transcribe(file_path,speakers_expected=2,output='', lang='pt'):        
     '''Transcribe audio file using AssemblyAI API'''
     aai.settings.api_key = os.getenv('ASSEMBLYAI_API_KEY')
     config = aai.TranscriptionConfig(
         speech_model=aai.SpeechModel.best,
         speaker_labels=True,
         speakers_expected=speakers_expected,
-        language_code="pt"
+        language_code=lang
     )
 
 
     transcriber = aai.Transcriber(config=config)
+    transcriber._client.timeout = 3000
     transcript = transcriber.transcribe(file_path)
 
     if transcript.status == aai.TranscriptStatus.error:
@@ -31,8 +31,8 @@ def transcribe(file_path,speakers_expected=2,output=''):
         with open(output, 'w',encoding='utf-8', errors='ignore') as f:
             for utterance in transcript.utterances:
                 f.write(f"LOCUTOR {utterance.speaker}: {utterance.text}\n")
-                print(f"{utterance.speaker}: {utterance.text}")
-            print(f"Transcript saved to transcript.txt")
+                # print(f"{utterance.speaker}: {utterance.text}")
+        print(f"Transcript saved to {output}")
             
         
 if __name__ == "__main__":
