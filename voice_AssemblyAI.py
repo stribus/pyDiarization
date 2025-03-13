@@ -5,7 +5,7 @@ import dotenv
 
 dotenv.load_dotenv()
 
-def transcribe(file_path,speakers_expected=2,output='', lang='pt'):        
+def transcribe(file_path,speakers_expected=2,output='', lang='pt')->bool:        
     '''Transcribe audio file using AssemblyAI API'''
     aai.settings.api_key = os.getenv('ASSEMBLYAI_API_KEY')
     config = aai.TranscriptionConfig(
@@ -22,6 +22,8 @@ def transcribe(file_path,speakers_expected=2,output='', lang='pt'):
 
     if transcript.status == aai.TranscriptStatus.error:
         print(transcript.error)
+        #lança exceção
+        raise Exception(transcript.error)
     else:
         if output == '':
             dir = os.path.dirname(file_path)
@@ -33,6 +35,8 @@ def transcribe(file_path,speakers_expected=2,output='', lang='pt'):
                 f.write(f"LOCUTOR {utterance.speaker}: {utterance.text}\n")
                 # print(f"{utterance.speaker}: {utterance.text}")
         print(f"Transcript saved to {output}")
+        return True
+    return False
             
         
 if __name__ == "__main__":
