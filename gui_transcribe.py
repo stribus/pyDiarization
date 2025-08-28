@@ -2,23 +2,86 @@ import os
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import threading
+import json
+from datetime import datetime, timedelta
 from voice_AssemblyAI import transcribe
 
 class TranscribeApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Transcrição de Áudio - AssemblyAI")
-        self.root.geometry("600x400")
+        self.root.geometry("600x500")
         self.root.resizable(False, False)
+        
+        # Arquivo para salvar estatísticas
+        self.stats_file = "transcription_stats.json"
         
         # Variáveis
         self.file_path = tk.StringVar()
         self.speakers = tk.IntVar(value=2)
         self.language = tk.StringVar(value="pt")
         self.is_processing = False
+        self.current_audio_duration = 0.0
+        self.total_time_transcribed = self.load_total_time()
+        
+        # Variáveis para displays de tempo
+        self.current_time_var = tk.StringVar(value="00:00:00")
+        self.total_time_var = tk.StringVar(value="00:00:00")
         
         self.create_widgets()
         self.center_window()
+        self.update_time_displays()
+        
+    def load_total_time(self):
+        """Carrega o tempo total transcrito do arquivo de estatísticas"""
+        try:
+            if os.path.exists(self.stats_file):
+                with open(self.stats_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('total_seconds', 0.0)
+        except Exception:
+            pass
+        return 0.0
+    
+    def save_total_time(self):
+        """Salva o tempo total transcrito no arquivo de estatísticas"""
+        try:
+            data = {
+                'total_seconds': self.total_time_transcribed,
+                'last_updated': datetime.now().isoformat()
+            }
+            with open(self.stats_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"Erro ao salvar estatísticas: {e}")
+    
+    def format_duration(self, seconds):
+        """Formata duração em segundos para HH:MM:SS"""
+        if seconds <= 0:
+            return "00:00:00"
+        
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    
+    def update_time_displays(self):
+        """Atualiza os displays de tempo na interface"""
+        current_time = self.format_duration(self.current_audio_duration)
+        total_time = self.format_duration(self.total_time_transcribed)
+        
+        self.current_time_var.set(current_time)
+        self.total_time_var.set(total_time)
+    
+    def reset_total_time(self):
+        """Reseta o tempo total acumulado"""
+        result = messagebox.askyesno("Confirmar Reset", 
+                                   "Tem certeza que deseja resetar o tempo total acumulado?")
+        if result:
+            self.total_time_transcribed = 0.0
+            self.save_total_time()
+            self.update_time_displays()
+            messagebox.showinfo("Reset Realizado", "Tempo total resetado com sucesso!")
         
     def center_window(self):
         """Centraliza a janela na tela"""
@@ -69,12 +132,35 @@ class TranscribeApp:
                                       values=["pt", "es", "en_us", "en"], width=10, state="readonly")
         language_combo.grid(row=0, column=3, padx=10, pady=10, sticky=tk.W)
         
+        # Frame para estatísticas de tempo
+        time_frame = ttk.LabelFrame(main_frame, text="Estatísticas de Tempo")
+        time_frame.pack(fill=tk.X, pady=10)
+        
+        # Tempo do áudio atual
+        current_label = ttk.Label(time_frame, text="Duração do áudio atual:")
+        current_label.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        
+        self.current_time_display = ttk.Label(time_frame, textvariable=self.current_time_var,
+                                            font=("Courier", 12, "bold"), foreground="blue")
+        self.current_time_display.grid(row=0, column=1, padx=10, pady=5, sticky=tk.W)
+        
+        # Tempo total acumulado
+        total_label = ttk.Label(time_frame, text="Tempo total transcrito:")
+        total_label.grid(row=1, column=0, padx=10, pady=5, sticky=tk.W)
+        
+        self.total_time_display = ttk.Label(time_frame, textvariable=self.total_time_var,
+                                          font=("Courier", 12, "bold"), foreground="green")
+        self.total_time_display.grid(row=1, column=1, padx=10, pady=5, sticky=tk.W)
+        
+        # Botão de reset
+        reset_button = ttk.Button(time_frame, text="Reset Total", command=self.reset_total_time)
+        reset_button.grid(row=1, column=2, padx=20, pady=5)
+        
         # Frame para botão de transcrição
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=20)
         
-        self.transcribe_button = ttk.Button(button_frame, text="Transcrever", 
-                                          command=self.start_transcription)
+        self.transcribe_button = ttk.Button(button_frame, text="Transcrever", command=self.start_transcription)
         self.transcribe_button.pack(pady=10)
         
         # Frame para progresso
@@ -94,11 +180,26 @@ class TranscribeApp:
     
     def browse_file(self):
         """Abre diálogo para selecionar arquivo de áudio"""
-        filetypes = (("Arquivos de áudio", "*.mp3 *.m4a"), ("Todos os arquivos", "*.*"))
-        file_path = filedialog.askopenfilename(title="Selecione um arquivo de áudio", 
-                                              filetypes=filetypes)
+        filetypes = (("Arquivos de áudio", "*.mp3 *.m4a *.wav *.mkv *.ogg *.opus"), ("Todos os arquivos", "*.*"))
+        file_path = filedialog.askopenfilename(title="Selecione um arquivo de áudio", filetypes=filetypes)
         if file_path:
             self.file_path.set(file_path)
+            # Obter duração do áudio selecionado
+            self.get_current_audio_duration(file_path)
+    
+    def get_current_audio_duration(self, file_path):
+        """Obtém a duração do áudio atual e atualiza a interface"""
+        try:
+            from voice_AssemblyAI import get_audio_duration
+            duration = get_audio_duration(file_path)
+            if duration:
+                self.current_audio_duration = duration
+            else:
+                self.current_audio_duration = 0.0
+        except Exception:
+            self.current_audio_duration = 0.0
+        
+        self.update_time_displays()
     
     def start_transcription(self):
         """Inicia o processo de transcrição em uma thread separada"""
@@ -122,24 +223,32 @@ class TranscribeApp:
     def run_transcription(self):
         """Executa a transcrição em uma thread separada"""
         try:
-            transcribe(
+            success, duration = transcribe(
                 file_path=self.file_path.get(),
                 speakers_expected=self.speakers.get(),
                 output='',  # Usar padrão
                 lang=self.language.get()
             )
             
+            if success and duration > 0:
+                # Atualizar tempo total acumulado
+                self.total_time_transcribed += duration
+                self.save_total_time()
+            
             # Atualizar UI na thread principal
-            self.root.after(0, self.transcription_complete, True)
+            self.root.after(0, self.transcription_complete, success, duration)
         except Exception as e:
             # Atualizar UI na thread principal em caso de erro
-            self.root.after(0, self.transcription_complete, False, str(e))
+            self.root.after(0, self.transcription_complete, False, 0.0, str(e))
     
-    def transcription_complete(self, success, error_message=""):
+    def transcription_complete(self, success, duration=0.0, error_message=""):
         """Chamado quando a transcrição é concluída"""
         self.progress_bar.stop()
         self.is_processing = False
         self.transcribe_button.config(state=tk.NORMAL)
+        
+        # Atualizar displays de tempo
+        self.update_time_displays()
         
         if success:
             # Obtém o caminho de saída (mesmo que a função transcribe)
@@ -147,8 +256,9 @@ class TranscribeApp:
             filename = os.path.basename(self.file_path.get())
             output_path = os.path.join(dir_path, filename.split('.')[0] + '_transcript.txt')
             
-            self.status_label.config(text=f"Transcrição concluída com sucesso!")
-            messagebox.showinfo("Concluído", f"A transcrição foi salva em:\n{output_path}")
+            duration_str = self.format_duration(duration) if duration > 0 else "N/A"
+            self.status_label.config(text=f"Transcrição concluída! Duração: {duration_str}")
+            messagebox.showinfo("Concluído", f"A transcrição foi salva em:\n{output_path}\n\nDuração do áudio: {duration_str}")
         else:
             self.status_label.config(text="Erro na transcrição")
             messagebox.showerror("Erro", f"Ocorreu um erro durante a transcrição:\n{error_message}")

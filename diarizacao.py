@@ -91,7 +91,7 @@ def transcribe_audio(audio_file: str, output_dir: str, language: str, model:str 
         logger.info("Carregando modelo...")
         device = "cuda" if torch.cuda.is_available() else "cpu"
         compute_type = "float32" if device == "cuda" else "int8"
-        model = whisperx.load_model(model, language=language, device=device, compute_type=compute_type)
+        modelPipeline = whisperx.load_model(model, language=language, device=device, compute_type=compute_type)
         
         logger.info("Carregando áudio...")
         audio = whisperx.load_audio(audio_file)
@@ -102,8 +102,8 @@ def transcribe_audio(audio_file: str, output_dir: str, language: str, model:str 
 
         logger.info("Transcrevendo áudio...")
         ## TODO: Verificar se é necessário alterar o batch_size e chunk_size
-        result = model.transcribe(audio, batch_size=10,chunk_size=10,print_progress=True)
-        
+        result = modelPipeline.transcribe(audio, batch_size=10,chunk_size=10,print_progress=True)
+
         logger.info("Alinhando áudio...")
         alignment_model, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
 
@@ -118,19 +118,30 @@ def transcribe_audio(audio_file: str, output_dir: str, language: str, model:str 
         logger.error(f"Erro ao transcrever áudio: {str(e)}", exc_info=True)
         raise
     
-    
-    
+def check_audio_file(audio_file: str) -> bool:
+    """Verifica se o arquivo de áudio existe e é acessível."""
+    return os.path.exists(audio_file)
+
+def get_audio_duration(audio_file: str) -> float:
+    """Retorna a duração do arquivo de áudio em segundos."""
+    try:
+        file = ffmpeg.input(audio_file)
+        duration = file.probe().duration
+        return duration
+    except Exception as e:
+        logger.error(f"Erro ao obter duração do áudio: {str(e)}", exc_info=True)
+        return 0.0
 
 def main(input_file: str, output_dir: str):
+    temp_wav_file = "temp_audio.wav"
+    padded_wav_file = "padded_audio.wav"
     try:
         input_file = os.path.abspath(input_file)
         if not os.path.exists(audio_file):
             raise FileNotFoundError(f"Arquivo de áudio não encontrado: {audio_file}")
         
-        temp_wav_file = "temp_audio.wav"
         convert_audio_to_wav(audio_file, temp_wav_file)
         
-        padded_wav_file = "padded_audio.wav"
         add_silence_padding(temp_wav_file, padded_wav_file)
         
         output_dir = os.path.abspath(output_dir)        
@@ -156,7 +167,9 @@ def main(input_file: str, output_dir: str):
 if (__name__ == "__main__"):
     warnings.filterwarnings("ignore")
     dotenv.load_dotenv()
-    os.environ["HF_API_KEY"] = os.getenv('HF_API_KEY')
+    hf_api_key = os.getenv('HF_API_KEY')
+    if hf_api_key is not None:
+        os.environ["HF_API_KEY"] = hf_api_key
     
     
     parser = argparse.ArgumentParser(description="Transcreve e diariza um arquivo de áudio.")
