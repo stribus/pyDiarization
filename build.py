@@ -32,19 +32,6 @@ def clean_build():
         if os.path.exists(file_name):
             print(f"Removendo arquivo {file_name}...")
             os.remove(file_name)
-    """Remove arquivos de build anteriores."""
-    dirs_to_clean = ['build', 'dist']
-    files_to_clean = ['TranscribeApp.spec']
-    
-    for dir_name in dirs_to_clean:
-        if os.path.exists(dir_name):
-            print(f"Removendo diretório {dir_name}...")
-            shutil.rmtree(dir_name)
-    
-    for file_name in files_to_clean:
-        if os.path.exists(file_name):
-            print(f"Removendo arquivo {file_name}...")
-            os.remove(file_name)
 
 def check_pyinstaller():
     """Verifica se o PyInstaller está instalado, caso contrário, instala."""
