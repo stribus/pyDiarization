@@ -125,8 +125,9 @@ def check_audio_file(audio_file: str) -> bool:
 def get_audio_duration(audio_file: str) -> float:
     """Retorna a duração do arquivo de áudio em segundos."""
     try:
-        file = ffmpeg.input(audio_file)
-        duration = file.probe().duration
+        probe = ffmpeg.probe(audio_file)
+        # Get duration from the first stream (usually audio)
+        duration = float(probe['streams'][0]['duration'])
         return duration
     except Exception as e:
         logger.error(f"Erro ao obter duração do áudio: {str(e)}", exc_info=True)
