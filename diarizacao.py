@@ -126,7 +126,7 @@ def get_audio_duration(audio_file: str) -> float:
     """Retorna a duração do arquivo de áudio em segundos."""
     try:
         file = ffmpeg.input(audio_file)
-        duration = file.probe().duration
+        duration = file.().duration
         return duration
     except Exception as e:
         logger.error(f"Erro ao obter duração do áudio: {str(e)}", exc_info=True)
@@ -136,7 +136,7 @@ def main(input_file: str, output_dir: str):
     temp_wav_file = "temp_audio.wav"
     padded_wav_file = "padded_audio.wav"
     try:
-        input_file = os.path.abspath(input_file)
+        audio_file = os.path.abspath(input_file)
         if not os.path.exists(audio_file):
             raise FileNotFoundError(f"Arquivo de áudio não encontrado: {audio_file}")
         
