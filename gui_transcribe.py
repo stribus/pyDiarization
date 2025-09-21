@@ -13,6 +13,15 @@ class TranscribeApp:
         self.root.geometry("600x500")
         self.root.resizable(False, False)
         
+        # Definir ícone da janela
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), "Icone.ico")
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+        except Exception as e:
+            # print(f"Erro ao carregar ícone: {e}")
+            pass
+        
         # Arquivo para salvar estatísticas
         self.stats_file = "transcription_stats.json"
         
@@ -180,7 +189,10 @@ class TranscribeApp:
     
     def browse_file(self):
         """Abre diálogo para selecionar arquivo de áudio"""
-        filetypes = (("Arquivos de áudio", "*.mp3 *.m4a *.wav *.mkv *.ogg *.opus"), ("Todos os arquivos", "*.*"))
+        filetypes = (
+            ("Arquivos de áudio", "*.mp3 *.m4a *.mp4 *.wav *.mkv *.ogg *.opus *.flac *.aac *.wma *.aiff *.aif *.aifc"),
+            ("Todos os arquivos", "*.*")
+        )
         file_path = filedialog.askopenfilename(title="Selecione um arquivo de áudio", filetypes=filetypes)
         if file_path:
             self.file_path.set(file_path)

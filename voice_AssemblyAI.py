@@ -57,7 +57,10 @@ def transcribe(file_path,speakers_expected=2,output='', lang='pt')->tuple:
         if output == '':
             dir = os.path.dirname(file_path)
             filename = os.path.basename(file_path)
-            output = os.path.join(dir, filename.split('.')[0] + '_transcript.txt')
+            # está dando erro quando o arquivo tem ponto no nome
+            # output = os.path.join(dir, filename.split('.')[0] + '_transcript.txt')
+            # solução alternativa:
+            output = os.path.join(dir, os.path.splitext(filename)[0] + '_transcript.txt')
             
         with open(output, 'w',encoding='utf-8', errors='ignore') as f:
             if transcript.utterances is not None:
